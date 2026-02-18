@@ -19,8 +19,16 @@ Add-Type -Name Window -Namespace Console -MemberDefinition '[DllImport("Kernel32
 
 Remove-TypeData -ErrorAction Ignore System.Array
 
-$conwin = [Console.Window]::GetConsoleWindow()
-
+if ($psISE -or ($env:TERM_PROGRAM -eq "vscode")) {
+    Write-Host "Is in ISE or VS Code."
+    function ShowConsole {}
+} else {
+    $conwin = [Console.Window]::GetConsoleWindow()
+    function ShowConsole {
+        param([bool]$shown)
+        [void][Console.Window]::ShowWindow($conwin, $shown)
+    }
+}
 #$ErrorActionPreference = "SilentlyContinue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
@@ -55,13 +63,8 @@ function DownloadFile {
     }
 }
 
-function ShowConsole {
-    param([bool]$shown)
-    [void][Console.Window]::ShowWindow($conwin, $shown)
-}
 
-
-$launchver = "0.4.6"
+$launchver = "0.4.7"
 
 Write-Host "Launshell $launchver
 "
@@ -83,6 +86,13 @@ function WriteJson {
     param([string]$name, [string]$obj, $val)
     $var=Get-Variable($name)-ValueOnly
     try {$var.$obj=$val} catch {$var | Add-Member NoteProperty $obj $val}
+}
+
+function New-GuidFromString {
+    param([string]$inputString)
+    $hash = [Security.Cryptography.MD5]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($inputString))
+    $guid = [guid]::new($hash).ToString("N")
+    return $guid
 }
 
 $arch = if ([Environment]::Is64BitOperatingSystem) { "64" } else { "86" }
@@ -170,7 +180,7 @@ function RuleCheck {
 }
 
 function GetClassFiles {
-    param($manifest, [bool]$rewrite, $call)
+    param($manifest, [bool]$rewrite, [bool]$hashes, $call)
 
     $verFolder = JoinPath $mchome "versions" $manifest.id
     $verNative = JoinPath $verFolder "natives"
@@ -181,7 +191,7 @@ function GetClassFiles {
     if (-not [System.IO.Directory]::Exists($verNative)) {$donatives = $true; [void](New-Item $verNative -Type Directory -Force)}
     
     #Client
-    if (-not [System.IO.File]::Exists($verFile) -or $rewrite) {
+    if (-not [System.IO.File]::Exists($verFile) -or $rewrite -or ($hashes -and ((Get-FileHash $verFile -Algorithm SHA1).Hash -ne $manifest.downloads.client.sha1))) {
         DownloadFile $manifest.downloads.client.url $verFile
     }
 
@@ -210,7 +220,7 @@ function GetClassFiles {
             $dest = JoinPath $LibsDir $libpath
             $destPath = Split-Path $dest -Parent
 
-            if (-not [System.IO.File]::Exists($dest) -or $rewrite) {
+            if (-not [System.IO.File]::Exists($dest) -or $rewrite -or ($hashes -and ((Get-FileHash $dest -Algorithm SHA1).Hash -ne $lib.downloads.artifact.sha1)) ) {
                 [void](New-Item $destPath -Type Directory -Force)
                 DownloadFile $lib.downloads.artifact.url $dest
             }
@@ -278,7 +288,7 @@ function GetAssetDir {
 }
 
 function CheckAssets {
-    param($manifest, [bool]$rewrite, $call)
+    param($manifest, [bool]$rewrite, [bool]$hashes, $call)
 
     $assetIndex = $manifest.assetIndex
     if (-not $assetIndex) {return}
@@ -318,7 +328,7 @@ function CheckAssets {
             $assetFile = JoinPath $assetPath $hash
         }
         if (-not [System.IO.Directory]::Exists($assetPath)) {[void](New-Item $assetPath -ItemType Directory -Force)}
-        if (-not [System.IO.File]::Exists($assetFile) -or $rewrite) {
+        if (-not [System.IO.File]::Exists($assetFile) -or $rewrite -or $hashes -and ((Get-FileHash $assetFile -Algorithm SHA1).Hash -ne $hash) ) {
             DownloadFile "https://resources.download.minecraft.net/$subDir/$hash" $assetFile
         }
     }
@@ -410,12 +420,12 @@ function BuildArguments {
 	    '${auth_player_name}' = '"'+$PSObj.Username+'"'
 	    '${game_directory}' = '"'+$PSObj.GameDir+'"'
 	    '${assets_root}' = '"'+$PSObj.AssetDir+'"'
-	    '${game_assets}' = '"'+'"'+$PSObj.AssetDir+'"'
+	    '${game_assets}' = '"'+$PSObj.AssetDir+'"'
 	    '${auth_uuid}' = $PSObj.Uuid
 	    '${auth_xuid}' = $PSObj.Uuid
 	    '${clientid}' = $PSObj.Uuid
 	    '${auth_session}' = $PSObj.Uuid
-	    '${auth_access_token}' = $PSObj.Token
+	    '${auth_access_token}' = $PSObj.Uuid
 	    '${user_type}' = $PSObj.UserType
 	    '${version_type}' = $PSObj.VerType
 	    '${user_properties}' = "{}"
@@ -501,7 +511,7 @@ function GetLanguage {
 }
 
 try {
-    if (-not [System.IO.File]::Exists("$root/settings.json")) {Set-Content "$root/settings.json" '{"res_x": 1280, "res_y": 720, "ram": 1024, "lang": "en_us", "check_assets": true, "optimized": 1, "version": "latest-release"}'; $global:first = $true}
+    if (-not [System.IO.File]::Exists("$root/settings.json")) {Set-Content "$root/settings.json" '{"res_x": 1280, "res_y": 720, "ram": 1024, "lang": "en_us", "check_assets": true, "check_hash": true, "optimized": 1, "version": "latest-release"}'; $global:first = $true}
     $settings = Get-Content "$root/settings.json" -Raw | ConvertFrom-Json
     $mchome = (Get-GameDir $settings.gamedir)
     $lang = GetLanguage $settings.lang
@@ -607,14 +617,14 @@ try {
     }
 	
 	function RefreshUsers {
-        if ($main_ui.users_list.SelectedIndex -ne -1) {WriteJson "settings" "user" $main_ui.users_list.SelectedItem.token}
+        if ($main_ui.users_list.SelectedIndex -ne -1) {WriteJson "settings" "user" $main_ui.users_list.SelectedItem.uuid}
         $users = Get-Content "$mchome/launshell_users.json" -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
         $main_ui.users_list.Items.Clear()
 		$main_ui.user_box.Text = ""
 		foreach ($user in $users) {
             if ($null -eq $user) {continue}
 			$idx = $main_ui.users_list.Items.Add($user)
-			if ($user.token -eq $settings.user) {
+			if ($user.uuid -eq $settings.user) {
 				$main_ui.users_list.SelectedIndex = $idx
 				$main_ui.user_box.Text = $user.name
 				$main_ui.changeuser_btn.Enabled = $true
@@ -657,7 +667,7 @@ try {
         $main_ui.statustext.Text = [string]$lang.checkfiles
         [System.Windows.Forms.Application]::DoEvents()
 
-        $classes = GetClassFiles $manifest $main_ui.redownlib_box.Checked {
+        $classes = GetClassFiles $manifest $main_ui.redownlib_box.Checked $main_ui.checkhash_box.Checked {
             param($i,$c)
             $main_ui.statustext.Text = [string]$lang.checkfiles+" ($i/$c)"
             [System.Windows.Forms.Application]::DoEvents()
@@ -667,7 +677,7 @@ try {
         if ($main_ui.checkass_box.Checked -or $main_ui.redownass_box.Checked -or $newdown) {
             $main_ui.statustext.Text = [string]$lang.checkassets
             [System.Windows.Forms.Application]::DoEvents()
-            CheckAssets $manifest $main_ui.redownass_box.Checked {
+            CheckAssets $manifest $main_ui.redownass_box.Checked $main_ui.checkhash_box.Checked {
                 param($i,$c)
                 $main_ui.statustext.Text = [string]$lang.checkassets+" ($i/$c)"
                 [System.Windows.Forms.Application]::DoEvents()
@@ -682,12 +692,14 @@ try {
         if ($profile.memory -le 0) {$mem = $main_ui.mem_box.Value}
         else {$mem = $profile.memory}
         
+        if ([string]::IsNullOrEmpty($main_ui.users_list.SelectedItem.uuid)) {$usid = (New-GuidFromString $main_ui.users_list.SelectedItem.name)} else {$usid = $main_ui.users_list.SelectedItem.uuid}
+        if ([string]::IsNullOrEmpty($main_ui.users_list.SelectedItem.token)) {$ustk = $usid} else {$ustk = $main_ui.users_list.SelectedItem.token}
         $mcargc = [PSCustomObject]@{
             Username=$main_ui.users_list.SelectedItem.name
             GameDir=$gdir
             AssetDir=$adir
-            Uuid=$main_ui.users_list.SelectedItem.token
-            Token=$main_ui.users_list.SelectedItem.token
+            Uuid=$usid
+            Token=$ustk
             UserType="msa"
             VerType=$manifest.type
             Fullscreen=$main_ui.fullscreen_box.Checked
@@ -727,7 +739,7 @@ try {
 
         try {
             Set-Location $gdir
-            #info "Arguments: $($jvarg, $manifest.mainClass, $mcarg)"
+            info "Arguments: $($jvarg, $manifest.mainClass, $mcarg)"
             & "$javaexec" @($jvarg-split' ') $manifest.mainClass @($mcarg-split' ') | ForEach-Object { Write-Host $_ }
             Set-Location $mchome
         } catch {warn "Java error: $_"; Set-Location $mchome}
@@ -759,6 +771,7 @@ try {
         $main_ui.launch_box.SelectedIndex = [int]$settings.on_launch
         $main_ui.dir_box.Text = [string]$settings.gamedir
         $main_ui.checkass_box.Checked = [bool]$settings.check_assets
+        $main_ui.checkhash_box.Checked = [bool]$settings.check_hash
         $main_ui.showver_box.Checked = [bool]$settings.show_profile_ver
 
         $main_ui.mem_box.Value = [math]::Max($main_ui.mem_box.Minimum, [int]$settings.ram)
@@ -877,7 +890,9 @@ try {
             } else {
                 $main_ui.users_list.Items.Add([PSCustomObject]@{
                     name = $user_ui.username.Text
-                    token = [guid]::NewGuid().ToString("N")
+                    uuid = [guid]::NewGuid().ToString("N")
+                    token = "token:"+[guid]::NewGuid().ToString("N")
+                    type = "plain"
                 })
             }
             $user_ui.window.Close()
@@ -1083,7 +1098,7 @@ try {
     [void]$main_ui.window.ShowDialog()
     
     WriteJson "settings" "show_profile_ver" $main_ui.showver_box.Checked 
-    WriteJson "settings" "user" $main_ui.users_list.SelectedItem.token
+    WriteJson "settings" "user" $main_ui.users_list.SelectedItem.uuid
     WriteJson "settings" "fullscreen" $main_ui.fullscreen_box.Checked
     WriteJson "settings" "res_x" $main_ui.resx_box.Value
     WriteJson "settings" "res_y" $main_ui.resy_box.Value
@@ -1094,6 +1109,7 @@ try {
     WriteJson "settings" "console" $main_ui.console_box.Checked
     WriteJson "settings" "version" $main_ui.version_box.SelectedItem.uuid
     WriteJson "settings" "check_assets" $main_ui.checkass_box.Checked
+    WriteJson "settings" "check_hash" $main_ui.checkhash_box.Checked
     WriteJson "settings" "optimized" $other_ui.opti_box.SelectedIndex
     WriteJson "settings" "replace_auth" $other_ui.auth_box.Checked
     WriteJson "settings" "mc_args" $other_ui.mcarg_box.Text

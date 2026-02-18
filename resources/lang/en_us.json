@@ -72,5 +72,7 @@
 	"openverfolder": "Open profile folder",
 	"reset": "Reset",
 	"customization": "Customization",
-	"profile_dp": "Show Profile's Version"
+	"profile_dp": "Show Profile's Version",
+	"downloading": "Downloading",
+	"checkhash": "Check hashes"
 }

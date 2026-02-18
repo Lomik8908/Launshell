@@ -72,5 +72,7 @@
 	"openverfolder": "Открыть папку профиля",
 	"reset": "Сброс",
 	"customization": "Персонализация",
-	"profile_dp": "Версия возле профиля"
+	"profile_dp": "Версия возле профиля",
+	"downloading": "Скачивание",
+	"checkhash": "Проверка хешов"
 }

@@ -73,6 +73,7 @@ $main_ui = @{
     setgame_tab = [System.Windows.Forms.TabPage]@{Text = [string]$lang.gametab}
     setlaunch_tab = [System.Windows.Forms.TabPage]@{Text = [string]$lang.launchertab}
     settheming_tab = [System.Windows.Forms.TabPage]@{Text = [string]$lang.customization}
+    setdownload_tab = [System.Windows.Forms.TabPage]@{Text = [string]$lang.downloading}
     ## Game Tab
 
     #gamedirectory
@@ -191,29 +192,9 @@ $main_ui = @{
 
     #checks
     console_box = [System.Windows.Forms.CheckBox]@{
-        Location = "5, 125"
-        Size = "144, 20"
-        Text = [string]$lang.showconsole
-    }
-    checkass_box = [System.Windows.Forms.CheckBox]@{
-        Location = "159, 105"
-        Size = "144, 20"
-        Text = [string]$lang.checkasset
-    }
-    redownlib_box = [System.Windows.Forms.CheckBox]@{
-        Location = "159, 85"
-        Size = "144, 20"
-        Text = [string]$lang.relib
-    }
-    redownass_box = [System.Windows.Forms.CheckBox]@{
         Location = "5, 85"
         Size = "144, 20"
-        Text = [string]$lang.reasset
-    }
-    redownjav_box = [System.Windows.Forms.CheckBox]@{
-        Location = "5, 105"
-        Size = "144, 20"
-        Text = [string]$lang.rejava
+        Text = [string]$lang.showconsole
     }
 
     ##Theming
@@ -221,6 +202,33 @@ $main_ui = @{
         Location = "5, 5"
         Size = "298, 20"
         Text = [string]$lang.profile_dp
+    }
+
+    ##Downloading
+    checkass_box = [System.Windows.Forms.CheckBox]@{
+        Location = "159, 5"
+        Size = "144, 20"
+        Text = [string]$lang.checkasset
+    }
+    checkhash_box = [System.Windows.Forms.CheckBox]@{
+        Location = "5, 5"
+        Size = "144, 20"
+        Text = [string]$lang.checkhash
+    }
+    redownlib_box = [System.Windows.Forms.CheckBox]@{
+        Location = "159, 25"
+        Size = "144, 20"
+        Text = [string]$lang.relib
+    }
+    redownass_box = [System.Windows.Forms.CheckBox]@{
+        Location = "5, 25"
+        Size = "144, 20"
+        Text = [string]$lang.reasset
+    }
+    redownjav_box = [System.Windows.Forms.CheckBox]@{
+        Location = "5, 45"
+        Size = "144, 20"
+        Text = [string]$lang.rejava
     }
 
     # Users
@@ -273,10 +281,12 @@ $main_ui.play_tab.Controls.AddRange(@($main_ui.user_label, $main_ui.user_box, $m
 $main_ui.settings_tab.Controls.Add($main_ui.settings_tabs)
 $main_ui.users_tab.Controls.AddRange(@($main_ui.users_list, $main_ui.adduser_btn, $main_ui.changeuser_btn))
 $main_ui.credits_tab.Controls.AddRange(@($main_ui.fox, $main_ui.launchver, $main_ui.refresh_user, $main_ui.credits_label))
-$main_ui.settings_tabs.Controls.AddRange(@($main_ui.setgame_tab, $main_ui.setlaunch_tab, $main_ui.settheming_tab))
+$main_ui.settings_tabs.Controls.AddRange(@($main_ui.setgame_tab, $main_ui.setlaunch_tab, $main_ui.settheming_tab, $main_ui.setdownload_tab))
 $main_ui.setgame_tab.Controls.AddRange(@($main_ui.other_btn, $main_ui.dir_label, $main_ui.dir_box, $main_ui.dir_def, $main_ui.dir_btn, $main_ui.res_label, $main_ui.resx_box, $main_ui.resy_box, $main_ui.x_label, $main_ui.fullscreen_box, $main_ui.mem_label, $main_ui.mem_slide, $main_ui.mem_box, $main_ui.mb_label))
 $main_ui.settheming_tab.Controls.Add($main_ui.showver_box)
-$main_ui.setlaunch_tab.Controls.AddRange(@($main_ui.launch_label, $main_ui.launch_box, $main_ui.lang_label, $main_ui.lang_box, $main_ui.console_box, $main_ui.redownlib_box, $main_ui.redownass_box, $main_ui.redownjav_box, $main_ui.checkass_box, $main_ui.console_box))
+$main_ui.setdownload_tab.Controls.AddRange(@($main_ui.redownlib_box, $main_ui.redownass_box, $main_ui.redownjav_box, $main_ui.checkass_box, $main_ui.checkhash_box))
+$main_ui.setlaunch_tab.Controls.AddRange(@($main_ui.launch_label, $main_ui.launch_box, $main_ui.lang_label, $main_ui.lang_box, $main_ui.console_box))
+
 
 $main_ui.launch_box.Items.AddRange(@([string]$lang.hidelaunch, [string]$lang.closelaunch, [string]$lang.donone))
 $main_ui.status.Items.AddRange(@($main_ui.refresh, $main_ui.folder, $main_ui.profile, $main_ui.statustext))
