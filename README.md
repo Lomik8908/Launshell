@@ -1,8 +1,10 @@
-# Launshell
-A minecraft launcher experiment.
+<br>A Minecraft launcher written in Powershell.</br>
 
-This project uses Google's Material Icons.
+## Preinstalled Languages
+English (English)
+Українська (Ukrainian)
+Русский (Russian)
 
-# Compatibility
-At least Powershell 5.1
-Windows is recommended
+## Requirements
+Powershell 5.1 or newer.
+Windows 7 or newer. (Powershell minimum requirements)
