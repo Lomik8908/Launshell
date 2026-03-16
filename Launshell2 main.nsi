@@ -12,10 +12,11 @@
 
 ; The name of the installer
 !define NAME "Launshell"
-Name "${NAME}"
+!define VERSION "0.5.0"
+Name "${NAME} ${VERSION}"
 
 ; The file to write
-OutFile "${NAME}.exe"
+OutFile "${NAME}-${VERSION}-Setup.exe"
 
 ; Request application privileges for Windows Vista and higher
 RequestExecutionLevel user
@@ -72,13 +73,13 @@ Section "Start Menu Shortcuts"
 
   CreateDirectory "$SMPROGRAMS\${NAME}"
   CreateShortcut "$SMPROGRAMS\${NAME}\Uninstall.lnk" "$INSTDIR\uninstall.exe"
-  CreateShortcut "$SMPROGRAMS\${NAME}\${NAME}.lnk" "powershell" '-NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\Launcher.ps1"' "$INSTDIR\resources\icons\minecraft.ico"
+  CreateShortcut "$SMPROGRAMS\${NAME}\${NAME}.lnk" "$WINDIR\System32\conhost.exe" 'powershell -WindowStyle Minimized -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\Launcher.ps1"' "$INSTDIR\resources\icons\minecraft.ico"
 
 SectionEnd
 
 Section "Desktop Shortcut"
 
-  CreateShortcut "$DESKTOP\${NAME}.lnk" "powershell" '-NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\Launcher.ps1"' "$INSTDIR\resources\icons\minecraft.ico"
+  CreateShortcut "$DESKTOP\${NAME}.lnk" "$WINDIR\System32\conhost.exe" 'powershell -WindowStyle Minimized -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\Launcher.ps1"' "$INSTDIR\resources\icons\minecraft.ico"
 
 SectionEnd
 ;--------------------------------

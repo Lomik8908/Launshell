@@ -1,3 +1,24 @@
+
+$resources = @{
+    main_icon = [System.Drawing.Icon]::new("$root/resources/icons/minecraft.ico")
+    folder_status = [System.Drawing.Image]::FromFile("$root/resources/icons/folder_status.png")
+    refresh = [System.Drawing.Image]::FromFile("$root/resources/icons/refresh.png")
+    refresh_status = [System.Drawing.Image]::FromFile("$root/resources/icons/refresh_status.png")
+    profiles_status = [System.Drawing.Image]::FromFile("$root/resources/icons/vermgr_status.png")
+    add = [System.Drawing.Image]::FromFile("$root/resources/icons/add.png")
+    delete = [System.Drawing.Image]::FromFile("$root/resources/icons/delete.png")
+    more = [System.Drawing.Image]::FromFile("$root/resources/icons/more.png")
+    edit = [System.Drawing.Image]::FromFile("$root/resources/icons/edit.png")
+    filter = [System.Drawing.Image]::FromFile("$root/resources/icons/filter.png")
+    random = [System.Drawing.Image]::FromFile("$root/resources/icons/random.png")
+    fox = [System.Drawing.Image]::FromFile("$root/resources/icons/fox.png")
+    person = [System.Drawing.Image]::FromFile("$root/resources/icons/person.png")
+}
+
+#Commons
+$common_ui = @{
+	tooltip = [System.Windows.Forms.ToolTip]@{}
+}
 ##MainUI.ps1
 $main_ui = @{
     #Main Window
@@ -30,7 +51,7 @@ $main_ui = @{
 	    Image = $resources.profiles_status
     }
     statustext = [System.Windows.Forms.ToolStripStatusLabel]@{}
-    folder_choose = [System.Windows.Forms.ContextMenuStrip]@{ShowImageMargin = $false}
+    folder_choose = [System.Windows.Forms.ContextMenuStrip]@{}
 
 
     # Main Tabs
@@ -196,6 +217,16 @@ $main_ui = @{
         Size = "144, 20"
         Text = [string]$lang.showconsole
     }
+    authlib_box = [System.Windows.Forms.CheckBox]@{
+        Location = "159, 85"
+        Size = "144, 20"
+        Text = [string]$lang.useauthlib
+    }
+    checkupd_box = [System.Windows.Forms.CheckBox]@{
+        Location = "5, 105"
+        Size = "144, 20"
+        Text = [string]$lang.checkupd
+    }
 
     ##Theming
     showver_box = [System.Windows.Forms.CheckBox]@{
@@ -232,9 +263,15 @@ $main_ui = @{
     }
 
     # Users
-    users_list = [System.Windows.Forms.ListBox]@{
+    user_info = [System.Windows.Forms.Label]@{
         Location = "10, 10"
-        Size = "294, 134"
+        Size = "294, 15"
+        Text = [string]$lang.user_info -f [string]$lang.none, [string]$lang.none
+        TextAlign = "BottomCenter"
+    }
+    users_list = [System.Windows.Forms.ListBox]@{
+        Location = "10, 25"
+        Size = "294, 121"
     }
     adduser_btn = [System.Windows.Forms.Button]@{
         Location = "9, 155"
@@ -250,8 +287,8 @@ $main_ui = @{
 
     # Credits
     credits_label = [System.Windows.Forms.Label]@{
-        Location = "10, 10"
-        Size = "294, 174"
+        Location = "10, 34"
+        Size = "294, 150"
         Text = [string]$lang.credits
     }
     fox = [System.Windows.Forms.PictureBox]@{
@@ -270,6 +307,11 @@ $main_ui = @{
         Size = "100, 15"
         Text = "Launshell $launchver"
     }
+    checkupd_btn = [System.Windows.Forms.Button]@{
+        Location = "5, 5"
+        Size = "304, 24"
+        Text = [string]$lang.checkupd
+    }
 }
 $main_ui.open_rootf = $main_ui.folder_choose.Items.Add([string]$lang.openrootfolder)
 $main_ui.open_versf = $main_ui.folder_choose.Items.Add([string]$lang.openverfolder)
@@ -279,16 +321,15 @@ $main_ui.window.Controls.AddRange(@($main_ui.status, $main_ui.tabs))
 $main_ui.tabs.Controls.AddRange(@($main_ui.play_tab, $main_ui.settings_tab, $main_ui.users_tab, $main_ui.credits_tab))
 $main_ui.play_tab.Controls.AddRange(@($main_ui.user_label, $main_ui.user_box, $main_ui.version_label, $main_ui.version_box, $main_ui.play_btn))
 $main_ui.settings_tab.Controls.Add($main_ui.settings_tabs)
-$main_ui.users_tab.Controls.AddRange(@($main_ui.users_list, $main_ui.adduser_btn, $main_ui.changeuser_btn))
-$main_ui.credits_tab.Controls.AddRange(@($main_ui.fox, $main_ui.launchver, $main_ui.refresh_user, $main_ui.credits_label))
+$main_ui.users_tab.Controls.AddRange(@($main_ui.user_info, $main_ui.users_list, $main_ui.adduser_btn, $main_ui.changeuser_btn))
+$main_ui.credits_tab.Controls.AddRange(@($main_ui.checkupd_btn, $main_ui.fox, $main_ui.launchver, $main_ui.refresh_user, $main_ui.credits_label))
 $main_ui.settings_tabs.Controls.AddRange(@($main_ui.setgame_tab, $main_ui.setlaunch_tab, $main_ui.settheming_tab, $main_ui.setdownload_tab))
+
 $main_ui.setgame_tab.Controls.AddRange(@($main_ui.other_btn, $main_ui.dir_label, $main_ui.dir_box, $main_ui.dir_def, $main_ui.dir_btn, $main_ui.res_label, $main_ui.resx_box, $main_ui.resy_box, $main_ui.x_label, $main_ui.fullscreen_box, $main_ui.mem_label, $main_ui.mem_slide, $main_ui.mem_box, $main_ui.mb_label))
 $main_ui.settheming_tab.Controls.Add($main_ui.showver_box)
-$main_ui.setdownload_tab.Controls.AddRange(@($main_ui.redownlib_box, $main_ui.redownass_box, $main_ui.redownjav_box, $main_ui.checkass_box, $main_ui.checkhash_box))
-$main_ui.setlaunch_tab.Controls.AddRange(@($main_ui.launch_label, $main_ui.launch_box, $main_ui.lang_label, $main_ui.lang_box, $main_ui.console_box))
+$main_ui.setdownload_tab.Controls.AddRange(@($main_ui.checkhash_box, $main_ui.checkass_box, $main_ui.redownass_box, $main_ui.redownlib_box, $main_ui.redownjav_box))
+$main_ui.setlaunch_tab.Controls.AddRange(@($main_ui.launch_label, $main_ui.launch_box, $main_ui.lang_label, $main_ui.lang_box, $main_ui.console_box, $main_ui.authlib_box, $main_ui.checkupd_box))
 
-
-$main_ui.launch_box.Items.AddRange(@([string]$lang.hidelaunch, [string]$lang.closelaunch, [string]$lang.donone))
 $main_ui.status.Items.AddRange(@($main_ui.refresh, $main_ui.folder, $main_ui.profile, $main_ui.statustext))
 
 ##VersionUI.ps1
@@ -312,54 +353,48 @@ $version_ui = @{
         Size = "30, 30"
         Image = $resources.refresh
     }
-	refresh_tip = [System.Windows.Forms.ToolTip]@{}
     add_btn = [System.Windows.Forms.Button]@{
         Location = "10, 190"
         Size = "30, 30"
         Image = $resources.add
     }
-	add_tip = [System.Windows.Forms.ToolTip]@{}
     edit_btn = [System.Windows.Forms.Button]@{
         Location = "40, 190"
         Size = "30, 30"
         Image = $resources.edit
 		Enabled = $false
     }
-	edit_tip = [System.Windows.Forms.ToolTip]@{}
     delete_btn = [System.Windows.Forms.Button]@{
         Location = "70, 190"
         Size = "30, 30"
         Image = $resources.delete
 		Enabled = $false
     }
-	delete_tip = [System.Windows.Forms.ToolTip]@{}
-    <#more_btn = [System.Windows.Forms.Button]@{
+    more_btn = [System.Windows.Forms.Button]@{
         Location = "100, 190"
         Size = "30, 30"
         Image = $resources.more
-		Enabled = $false
-    }#>
-    #more_list = [System.Windows.Forms.ContextMenuStrip]@{ShowImageMargin = $false}
-	#more_tip = [System.Windows.Forms.ToolTip]@{}
+    }
+    more_list = [System.Windows.Forms.ContextMenuStrip]@{}
 }
-<#$version_ui.convertminecraft = $version_ui.more_list.Items.Add("Convert profiles from .minecraft")
+$version_ui.convertminecraft = $version_ui.more_list.Items.Add("Convert profiles from .minecraft")
 $version_ui.convertfile = $version_ui.more_list.Items.Add("Convert profiles from file")
 $version_ui.convertgamedir = $version_ui.more_list.Items.Add("Convert profiles from GameDir")
-#>
-$version_ui.refresh_tip.SetToolTip($version_ui.refresh_btn, [string]$lang.refreshvers)
-$version_ui.add_tip.SetToolTip($version_ui.add_btn, [string]$lang.addver)
-$version_ui.delete_tip.SetToolTip($version_ui.delete_btn, [string]$lang.deletever)
-$version_ui.edit_tip.SetToolTip($version_ui.edit_btn, [string]$lang.editver)
-#$version_ui.more_tip.SetToolTip($version_ui.more_btn, [string]$lang.morever)
+
+$common_ui.tooltip.SetToolTip($version_ui.refresh_btn, [string]$lang.refreshvers)
+$common_ui.tooltip.SetToolTip($version_ui.add_btn, [string]$lang.addver)
+$common_ui.tooltip.SetToolTip($version_ui.delete_btn, [string]$lang.deletever)
+$common_ui.tooltip.SetToolTip($version_ui.edit_btn, [string]$lang.editver)
+$common_ui.tooltip.SetToolTip($version_ui.more_btn, [string]$lang.morever)
 $version_ui.window.Controls.AddRange(@($version_ui.list_box, $version_ui.refresh_btn, $version_ui.add_btn, $version_ui.delete_btn, $version_ui.edit_btn, $version_ui.more_btn))
 
-#$version_ui.more_btn.Add_Click({$version_ui.more_list.Show($version_ui.more_btn, "0,0")})
+$version_ui.more_btn.Add_Click({$version_ui.more_list.Show($version_ui.more_btn, "0,0")})
 
 ##OtherUI.ps1
 $other_ui = @{
     #Main Window
     window = [System.Windows.Forms.Form]@{
-        ClientSize = "300, 135"
+        ClientSize = "300, 155"
         Text = [string]$lang.othersett
         FormBorderStyle = "FixedDialog"
         MaximizeBox = $false
@@ -374,13 +409,8 @@ $other_ui = @{
     }
     opti_box = [System.Windows.Forms.ComboBox]@{
         Location = "10, 25"
-        Size = "130, 22"
+        Size = "280, 22"
         DropDownStyle = "DropDownList"
-    }
-    auth_box = [System.Windows.Forms.CheckBox]@{
-        Location = "150, 25"
-        Size = "140, 22"
-        Text = [string]$lang.reauthpoint
     }
     mcarg_label = [System.Windows.Forms.Label]@{
         Location = "10, 50"
@@ -400,9 +430,13 @@ $other_ui = @{
         Location = "10, 105"
         Size = "280, 22"
     }
+    showarg_box = [System.Windows.Forms.CheckBox]@{
+        Location = "10, 130"
+        Size = "280, 22"
+        Text = [string]$lang.showargs
+    }
 }
-$other_ui.window.Controls.AddRange(@($other_ui.opti_box, $other_ui.opti_label, $other_ui.auth_box, $other_ui.mcarg_box, $other_ui.mcarg_label, $other_ui.jvarg_box, $other_ui.jvarg_label))
-[void]$other_ui.opti_box.Items.Add([string]$lang.none)
+$other_ui.window.Controls.AddRange(@($other_ui.opti_box, $other_ui.opti_label, $other_ui.mcarg_box, $other_ui.mcarg_label, $other_ui.jvarg_box, $other_ui.jvarg_label, $other_ui.showarg_box))
 
 ##VersionDialog.ps1
 $version_dialog = @{
@@ -540,6 +574,7 @@ $version_dialog.ver_alph = $version_dialog.ver_fils.Items.Add([string]$lang.s_al
 $version_dialog.ver_beta = $version_dialog.ver_fils.Items.Add([string]$lang.s_beta)
 $version_dialog.ver_snap = $version_dialog.ver_fils.Items.Add([string]$lang.s_snapshot)
 $version_dialog.ver_adv = $version_dialog.ver_fils.Items.Add([string]$lang.s_advanced)
+# [void]$version_dialog.ver_fils.Items.Add([System.Windows.Forms.ToolStripSeparator]@{})
 
 $version_dialog.inst.CheckOnClick = $true
 $version_dialog.ver_alph.CheckOnClick = $true
@@ -548,7 +583,6 @@ $version_dialog.ver_snap.CheckOnClick = $true
 $version_dialog.ver_adv.CheckOnClick = $true
 
 $version_dialog.window.Controls.AddRange(@($version_dialog.name, $version_dialog.name_label, $version_dialog.ver_fil, $version_dialog.ver, $version_dialog.ver_label, $version_dialog.dir, $version_dialog.dir_btn, $version_dialog.dirdef_btn, $version_dialog.dir_label, $version_dialog.mem, $version_dialog.mb, $version_dialog.opti_box, $version_dialog.opti_label, $version_dialog.mem_label, $version_dialog.arg, $version_dialog.arg_label, $version_dialog.mcarg, $version_dialog.mcarg_label, $version_dialog.more_btn, $version_dialog.info, $version_dialog.save_btn))
-$version_dialog.opti_box.Items.AddRange(@([string]$lang.none, [string]$lang.default))
 
 $version_dialog.more_btn.Add_Click({
     if ($version_dialog.expanded) {
@@ -565,7 +599,7 @@ $version_dialog.ver_fil.Add_Click({$version_dialog.ver_fils.Show($version_dialog
 $user_ui = @{
     #Main Window
     window = [System.Windows.Forms.Form]@{
-        ClientSize = "300, 70"
+        ClientSize = "300, 100"
         Text = [string]$lang.adduser
         FormBorderStyle = "FixedDialog"
         MaximizeBox = $false
@@ -573,30 +607,110 @@ $user_ui = @{
         StartPosition = "CenterScreen"
         Icon = $resources.main_icon
     }
-    username = [System.Windows.Forms.TextBox]@{
+    user_type = [System.Windows.Forms.ComboBox]@{
         Location = "10, 10"
-        Size = "250, 20"
+        Size = "280, 22"
+        DropDownStyle = "DropDownList"
+    }
+    username = [System.Windows.Forms.TextBox]@{
+        Location = "10, 40"
+        Size = "250, 22"
     }
     randomize = [System.Windows.Forms.Button]@{
-        Location = "268, 9"
+        Location = "268, 39"
         Size = "22, 22"
         Image = $resources.random
     }
-    info = [System.Windows.Forms.Label]@{
+    other = [System.Windows.Forms.Button]@{
         Location = "10, 40"
+        Size = "280, 22"
+        Visible = $false
+    }
+    info = [System.Windows.Forms.Label]@{
+        Location = "10, 70"
         Size = "125, 20"
         TextAlign = "MiddleLeft"
     }
     save_btn = [System.Windows.Forms.Button]@{
-        Location = "145, 38"
+        Location = "145, 70"
         Size = "70, 22"
         Text = [string]$lang.save
     }
     remove_btn = [System.Windows.Forms.Button]@{
-        Location = "220, 38"
+        Location = "220, 70"
         Size = "70, 22"
         Text = [string]$lang.remove
 		Enabled = $false
     }
 }
-$user_ui.window.Controls.AddRange(@($user_ui.username, $user_ui.randomize, $user_ui.info, $user_ui.save_btn, $user_ui.remove_btn))
+$user_ui.window.Controls.AddRange(@($user_ui.user_type, $user_ui.username, $user_ui.other, $user_ui.randomize, $user_ui.info, $user_ui.save_btn, $user_ui.remove_btn))
+
+
+##Login.ps1
+$login_ui = @{
+    #Main Window
+    window = [System.Windows.Forms.Form]@{
+        ClientSize = "300, 100"
+        FormBorderStyle = "FixedDialog"
+        MaximizeBox = $false
+        MinimizeBox = $false
+        StartPosition = "CenterScreen"
+        Icon = $resources.main_icon
+    }
+    user_label = [System.Windows.Forms.Label]@{
+        Location = "10, 10"
+        Size = "115, 20"
+        Text = [string]$lang.username
+        TextAlign = "MiddleLeft"
+    }
+    pass_label = [System.Windows.Forms.Label]@{
+        Location = "10, 40"
+        Size = "115, 20"
+        Text = [string]$lang.password
+        TextAlign = "MiddleLeft"
+    }
+    username = [System.Windows.Forms.TextBox]@{
+        Location = "125, 10"
+        Size = "165, 20"
+    }
+    password = [System.Windows.Forms.TextBox]@{
+        Location = "125, 40"
+        Size = "165, 20"
+        UseSystemPasswordChar = $true
+    }
+    login_btn = [System.Windows.Forms.Button]@{
+        Location = "145, 70"
+        Size = "70, 22"
+        Text = [string]$lang.login
+        DialogResult = "OK"
+    }
+    cancel_btn = [System.Windows.Forms.Button]@{
+        Location = "220, 70"
+        Size = "70, 22"
+        Text = [string]$lang.cancel
+    }
+    auth_check = [System.Windows.Forms.CheckBox]@{
+        Location = "10, 70"
+        Size = "130, 22"
+        Text = [string]$lang.have2fa
+    }
+    auth_box = [System.Windows.Forms.TextBox]@{
+        Location = "240, 40"
+        Size = "50, 22"
+        TextAlign = "Center"
+        Visible = $false
+    }
+}
+$login_ui.window.AcceptButton = $login_ui.login_btn
+$login_ui.window.CancelButton = $login_ui.cancel_btn
+$login_ui.window.Controls.AddRange(@($login_ui.user_label, $login_ui.pass_label, $login_ui.username, $login_ui.password, $login_ui.auth_box, $login_ui.auth_check, $login_ui.login_btn, $login_ui.cancel_btn))
+
+$login_ui.auth_check.Add_CheckedChanged({
+    param($i)
+    $login_ui.auth_box.Visible = $i.Checked
+    if ($i.Checked) {
+        $login_ui.password.Size = "110, 20"
+    } else {
+        $login_ui.password.Size = "165, 20"
+    }
+})
