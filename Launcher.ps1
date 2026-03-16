@@ -154,33 +154,33 @@ $optimized = @(
 
 $common = "-XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:MaxGCPauseMillis=200 -XX:+AlwaysPreTouch -XX:+ParallelRefProcEnabled -Dfml.ignoreInvalidMinecraftCertificates=true -Dfml.ignorePatchDiscrepancies=true -Djava.net.useSystemProxies=true -Dfile.encoding=UTF-8"
 
-function ConvertProfiles {
-    param([string]$path)
-    if (-not (Test-Path $path)) {return}
-    $vprofiles1 = Get-Content $path -Raw | ConvertFrom-Json
-    $vprofiles = [System.Collections.ArrayList]@() 
-    foreach ($value in $vprofiles1.profiles) {
-        $nprof = [PSCustomObject]@{
-            uuid = [guid]::NewGuid().ToString("N")
-            name = ""
-            json = $value.lastVersionId
-            gamedir = ""
-            memory = 0
-            args = ""
-            mineargs = ""
-            opti = 1
-        }
+# function ConvertProfiles {
+#     param([string]$path)
+#     if (-not (Test-Path $path)) {return}
+#     $vprofiles1 = Get-Content $path -Raw | ConvertFrom-Json
+#     $vprofiles = [System.Collections.ArrayList]@() 
+#     foreach ($value in $vprofiles1.profiles) {
+#         $nprof = [PSCustomObject]@{
+#             uuid = [guid]::NewGuid().ToString("N")
+#             name = ""
+#             json = $value.lastVersionId
+#             gamedir = ""
+#             memory = 0
+#             args = ""
+#             mineargs = ""
+#             opti = 1
+#         }
 
-        if ([string]::IsNullOrEmpty($value.name)) {
-            $nprof.name = $value.lastVersionId+" converted"
-        } else {
-            $nprof.name = $value.name+" converted"
-        }
+#         if ([string]::IsNullOrEmpty($value.name)) {
+#             $nprof.name = $value.lastVersionId+" converted"
+#         } else {
+#             $nprof.name = $value.name+" converted"
+#         }
 
-        $vprofile.Add($nprof)
-    }
-    return $vprofiles
-}
+#         $vprofile.Add($nprof)
+#     }
+#     return $vprofiles
+# }
 
 $u_adj = @("Swift", "Lazy", "Brave", "Silent", "Happy", "Clever", "Dark", "Fuzzy", "Witty", "Mighty", "Muddy", "Mystic", "Shadow", "Oak", "Holy", "Open", "Neat")
 $u_nou = @("Fox", "Tiger", "Eagle", "Panda", "Wolf", "Dragon", "Otter", "Bear", "Hawk", "Shark", "Cat", "Llama", "Hamster", "Rabbit", "Owl", "Lion", "Fiber", "Sage", "Clover", "Relic")
@@ -887,7 +887,7 @@ try {
                             $user.token = $newTK.accessToken
                             SaveUsers
                         } catch {
-                            warn "Token invalid or error: $_"
+                            warn "Token invalid or error: $_\n    Most likely your client id was reset, in that case please readd your account."
                         }
                     } else {
                         warn "Token error: $_"
@@ -1065,7 +1065,7 @@ try {
         }
     }
     if ($main_ui.lang_box.Items.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("There are no languages present!`nBecause of that every string will be empty.`nInstall a language or reinstall the app.", "Launshell")
+        [void][System.Windows.Forms.MessageBox]::Show("There are no languages present!`nBecause of that every string will be empty.`nInstall a language or reinstall the app.", "Launshell")
     }
 
     try {
@@ -1277,7 +1277,7 @@ try {
                 username = $login_ui.username.Text
                 password = $login_ui.password.Text
                 clientToken = $settings.clientId
-                requestUser = $true
+                # requestUser = $true
             }
             if (($login_ui.auth_check.Checked) -and ($login_ui.auth_box.Text.Length -ge 6) -and ($login_ui.auth_box.Text -as [int])) {
                 $body.password += ":"+$login_ui.auth_box.Text
@@ -1292,8 +1292,8 @@ try {
             try {
                 $response = Invoke-RestMethod -Uri "https://authserver.ely.by/auth/authenticate" -Method Post -ContentType "application/json" -Body $bodys
                 $main_ui.users_list.Items.Add([PSCustomObject]@{
-                    name = $response.user.username
-                    uuid = $response.user.id
+                    name = $response.selectedProfile.name
+                    uuid = $response.selectedProfile.id
                     token = $response.accessToken
                     type = "elyby"
                 })

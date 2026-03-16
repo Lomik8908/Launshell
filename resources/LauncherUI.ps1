@@ -7,7 +7,6 @@ $resources = @{
     profiles_status = [System.Drawing.Image]::FromFile("$root/resources/icons/vermgr_status.png")
     add = [System.Drawing.Image]::FromFile("$root/resources/icons/add.png")
     delete = [System.Drawing.Image]::FromFile("$root/resources/icons/delete.png")
-    more = [System.Drawing.Image]::FromFile("$root/resources/icons/more.png")
     edit = [System.Drawing.Image]::FromFile("$root/resources/icons/edit.png")
     filter = [System.Drawing.Image]::FromFile("$root/resources/icons/filter.png")
     random = [System.Drawing.Image]::FromFile("$root/resources/icons/random.png")
@@ -370,25 +369,13 @@ $version_ui = @{
         Image = $resources.delete
 		Enabled = $false
     }
-    more_btn = [System.Windows.Forms.Button]@{
-        Location = "100, 190"
-        Size = "30, 30"
-        Image = $resources.more
-    }
-    more_list = [System.Windows.Forms.ContextMenuStrip]@{}
 }
-$version_ui.convertminecraft = $version_ui.more_list.Items.Add("Convert profiles from .minecraft")
-$version_ui.convertfile = $version_ui.more_list.Items.Add("Convert profiles from file")
-$version_ui.convertgamedir = $version_ui.more_list.Items.Add("Convert profiles from GameDir")
 
 $common_ui.tooltip.SetToolTip($version_ui.refresh_btn, [string]$lang.refreshvers)
 $common_ui.tooltip.SetToolTip($version_ui.add_btn, [string]$lang.addver)
 $common_ui.tooltip.SetToolTip($version_ui.delete_btn, [string]$lang.deletever)
 $common_ui.tooltip.SetToolTip($version_ui.edit_btn, [string]$lang.editver)
-$common_ui.tooltip.SetToolTip($version_ui.more_btn, [string]$lang.morever)
 $version_ui.window.Controls.AddRange(@($version_ui.list_box, $version_ui.refresh_btn, $version_ui.add_btn, $version_ui.delete_btn, $version_ui.edit_btn, $version_ui.more_btn))
-
-$version_ui.more_btn.Add_Click({$version_ui.more_list.Show($version_ui.more_btn, "0,0")})
 
 ##OtherUI.ps1
 $other_ui = @{
@@ -554,7 +541,7 @@ $version_dialog = @{
     ver_fils = [System.Windows.Forms.ContextMenuStrip]@{}
     expanded = $false
     more_btn = [System.Windows.Forms.Button]@{
-        Location = "9, 90"
+        Location = "9, 95"
         Size = "70, 22"
         Text = [string]$lang.more
     }
@@ -564,7 +551,7 @@ $version_dialog = @{
         TextAlign = "MiddleCenter"
     }
     save_btn = [System.Windows.Forms.Button]@{
-        Location = "221, 90"
+        Location = "221, 95"
         Size = "70, 22"
         Text = [string]$lang.save
     }
