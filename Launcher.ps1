@@ -74,7 +74,7 @@ function DownloadFile {
     }
 }
 
-$launchver = "0.5.0"
+$launchver = "0.5.1"
 
 Write-Host "Launshell $launchver
 "
@@ -281,8 +281,8 @@ function GetClassFiles {
     foreach ($lib in $manifest.libraries) {
         if (-not $launching) {break}
         $index++
-        if ($call -is [ScriptBlock]) {try{&$call $index $count}catch{}}
         if (($null -ne $lib.rules) -and -not ($lib.rules | Where-Object {RuleCheck $_})) {continue}
+        if ($call -is [ScriptBlock]) {try{&$call $index $count}catch{}}
 
         $split = [System.Collections.ArrayList]($lib.name.Split(":"))
         $split2 = $split[0].Split(".")
@@ -370,6 +370,7 @@ function GetClassFiles {
 function CheckManifest {
     param([string]$version, [bool]$rewrite)
     $manifestLoc = JoinPath $mchome "versions" $version "$version.json"
+    info "Checking manifest for $version..."
     if (-not [System.IO.File]::Exists($manifestLoc) -or $rewrite) {
         $verlist = GetOnlineVersionList
         if ($null -ne $verlist) {
@@ -414,7 +415,8 @@ function CheckAssets {
     $indexFile = JoinPath $indexesDir "$($assetIndex.id).json"
     $virtDir = JoinPath $assetDir "virtual" $assetIndex.id
     if (-not [System.IO.Directory]::Exists($indexesDir)) {[void](New-Item $indexesDir -ItemType Directory -Force)}
-    if (-not [System.IO.File]::Exists($indexFile) -or $rewrite) {
+    # Index
+    if (-not [System.IO.File]::Exists($indexFile) -or $rewrite -or ($hashes -and $assetIndex.sha1 -and ((Get-FileHash $indexFile -Algorithm SHA1).Hash -ne $assetIndex.sha1))) {
         info "[assets/INDEX] Downloading $($assetIndex.id) index"
         DownloadFile $assetIndex.url $indexFile
     }
@@ -464,7 +466,7 @@ function DownloadJava {
     param([string]$javaVer, $rewrite, $call)
 
     $javalist = GetJavasList
-    if ($null -ne $javalist.$javaVer) {
+    if ($null -eq $javalist.$javaVer) {
         return
     }
 
@@ -474,7 +476,7 @@ function DownloadJava {
         warn "Could not get $javaVer manifest: $_"
         return
     }
-    if ($null -ne $jf.files) {return}
+    if ($null -eq $jf.files) {return}
     $javadir = JoinPath $root "java" $javaVer
     if (-not [System.IO.Directory]::Exists($javadir)) {[void](New-Item $javadir -ItemType Directory -Force)}
     $props = $jf.files.PSObject.Properties
@@ -484,10 +486,10 @@ function DownloadJava {
     foreach ($file in $props) {
         if (-not $launching) {break}
         $index++
+        if ($file.Value.type -eq "directory") {continue}
         if ($call -is [ScriptBlock]) {try{&$call $index $count}catch{}}
         $filePath = JoinPath $javadir $file.Name
         $fileDir = Split-Path $filePath -Parent
-        if ($file.Value.type -eq "directory") {continue}
         if (-not [System.IO.Directory]::Exists($fileDir)) {[void](New-Item -ItemType Directory -Path $fileDir -Force)}
         if (-not [System.IO.File]::Exists($filePath) -or $rewrite) {
             info "[java] Downloading $($file.Name)..."
@@ -502,7 +504,7 @@ function GetJava {
         $rejava = "jre-legacy"
     }
     $path = JoinPath $root "java" $rejava "bin" "java.exe"
-    if (-not [System.IO.File]::Exists($path) -or $rewrite) {
+    if ((-not [System.IO.File]::Exists($path)) -or $rewrite) {
         DownloadJava $rejava $rewrite $call
     }
     return $path
@@ -706,8 +708,9 @@ try {
 } catch {warn "Error loading jsons: $_"}
 Set-Location $mchome
 
+$defaultProfs = '[{"uuid":  "latest-release", "name":  "Latest Release", "json":  "latest", "opti":  1},{"uuid":  "latest-snapshot", "name":  "Latest Snapshot", "json":  "latest-snapshot", "opti":  1}]'
 if (-not (Test-Path "$mchome/launshell_profiles.json")) {
-    Set-Content "$mchome/launshell_profiles.json" '[{"uuid":  "latest-release", "name":  "Latest Release", "json":  "latest", "opti":  1},{"uuid":  "latest-snapshot", "name":  "Latest Snapshot", "json":  "latest-snapshot", "opti":  1}]'
+    Set-Content "$mchome/launshell_profiles.json" $defaultProfs
 }
 
 if ($settings.checkupdates) {
@@ -1046,6 +1049,27 @@ try {
             EndLaunch
         }
     }
+    
+    function SetGameDir {
+        param($path)
+        $main_ui.dir_box.Text = $path
+        SaveUsers
+        SaveProfiles
+
+        $global:mchome = (Get-GameDir $path)
+        Set-Location $mchome
+
+        if (-not (Test-Path "$mchome/launshell_profiles.json")) {
+            Set-Content "$mchome/launshell_profiles.json" $defaultProfs
+        }
+        if (-not (Test-Path "$mchome/launcher_profiles.json")) {
+            Set-Content "$mchome/launcher_profiles.json" '{"profiles": {}}'
+        }
+
+        RefreshVersions
+        RefreshUsers
+        UpdateUserInfo
+    }
 
     
     if ([System.IO.Directory]::Exists("$root/resources/lang")) {
@@ -1114,20 +1138,7 @@ try {
     $main_ui.dir_btn.Add_Click({
         $browsefolder.SelectedPath = $mchome
         if ($browsefolder.ShowDialog() -eq "OK") {
-            $main_ui.dir_box.Text = $browsefolder.SelectedPath
-            SaveUsers
-            SaveProfiles
-
-            $global:mchome = (Get-GameDir $browsefolder.SelectedPath)
-            Set-Location $mchome
-
-            if (-not (Test-Path "$mchome/launshell_profiles.json")) {
-                Set-Content "$mchome/launshell_profiles.json" '[{"uuid":  "latest-release", "name":  "Latest Release", "json":  "latest", "opti":  1}]'
-            }
-
-            RefreshVersions
-            RefreshUsers
-            UpdateUserInfo
+            SetGameDir $browsefolder.SelectedPath
         }
     })
 
@@ -1151,19 +1162,7 @@ try {
         $global:lang = GetLanguage $i.SelectedItem.filename
         [System.Windows.Forms.MessageBox]::Show([string]$lang.langchange, "Launshell", "OK", "Information")
     })
-    $main_ui.dir_def.Add_Click({
-        $main_ui.dir_box.Text = ""
-        SaveUsers
-        SaveProfiles
-        $global:mchome = Get-GameDir
-        Set-Location $mchome
-        if (-not (Test-Path "$mchome/launshell_profiles.json")) {
-            Set-Content "$mchome/launshell_profiles.json" '[{"uuid":  "latest-release", "name":  "Latest Release", "json":  "latest", "opti":  1}]'
-        }
-        RefreshVersions
-        RefreshUsers
-        UpdateUserInfo
-    })
+    $main_ui.dir_def.Add_Click({ SetGameDir "" })
     $main_ui.play_btn.Add_Click({GameLaunch})
     $main_ui.other_btn.Add_Click({$other_ui.window.ShowDialog()})
     $main_ui.checkupd_btn.Add_Click({
