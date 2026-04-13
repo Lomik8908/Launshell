@@ -13,7 +13,7 @@ if ($PSVersionTable.PSVersion.Major -lt 5) {
 }
 
 #get script root
-if (-not [string]::IsNullOrEmpty($PSScriptRoot)) { $root = $PSScriptRoot}
+if (-not [string]::IsNullOrWhitespace($PSScriptRoot)) { $root = $PSScriptRoot }
 #elseif ($MyInvocation.MyCommand.Path) {$root = Split-Path -Path $MyInvocation.MyCommand.Path -Parent}
 else {$root = Get-Location}
 
@@ -41,15 +41,15 @@ if ($psISE -or ($env:TERM_PROGRAM -eq "vscode")) {
 #Console things
 function info {
     param($text)
-    Write-Host ("[LS] "+(Get-Date -Format "[HH:mm:ss]: ")+$text)
+    Write-Host ((Get-Date -Format "[HH:mm:ss] ")+"[LS]: "+$text)
 }
 function warn {
     param($text)
-    Write-Host ("[LS/WRN] "+(Get-Date -Format "[HH:mm:ss]: ")+$text) -ForegroundColor Yellow -BackgroundColor Black
+    Write-Host ((Get-Date -Format "[HH:mm:ss]: ")+"[LS/WRN]: "+$text) -ForegroundColor Yellow -BackgroundColor Black
 }
 function error {
     param($text)
-    Write-Host ("[LS/ERR] "+(Get-Date -Format "[HH:mm:ss]: ")+$text) -ForegroundColor Red -BackgroundColor Black
+    Write-Host ((Get-Date -Format "[HH:mm:ss]: ")+"[LS/ERR]: "+$text) -ForegroundColor Red -BackgroundColor Black
 }
 
 #Making powershell more like C#
@@ -61,9 +61,6 @@ function JoinPath {
     return [System.IO.Path]::Combine($paths)
 }
 
-# More defs =3
-$lTemp = JoinPath $env:TEMP "launshell"
-
 #IDK
 function DownloadFile {
     param([string]$Uri, [string]$OutFile)
@@ -74,7 +71,7 @@ function DownloadFile {
     }
 }
 
-$launchver = "0.5.1"
+$launchver = "0.5.2"
 
 Write-Host "Launshell $launchver
 "
@@ -129,6 +126,7 @@ $arch = if ([Environment]::Is64BitOperatingSystem) { "64" } else { "86" }
 $maxram = ([Microsoft.VisualBasic.Devices.ComputerInfo]::new().TotalPhysicalMemory / 1MB)
 $OsVersion = [System.Environment]::OSVersion.Version.Major.ToString()
 
+## From Legacy Launcher's source, thinking of replacing soon
 $optimized = @(
     [PSCustomObject]@{
         id="g1gc"
@@ -154,36 +152,8 @@ $optimized = @(
 
 $common = "-XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:MaxGCPauseMillis=200 -XX:+AlwaysPreTouch -XX:+ParallelRefProcEnabled -Dfml.ignoreInvalidMinecraftCertificates=true -Dfml.ignorePatchDiscrepancies=true -Djava.net.useSystemProxies=true -Dfile.encoding=UTF-8"
 
-# function ConvertProfiles {
-#     param([string]$path)
-#     if (-not (Test-Path $path)) {return}
-#     $vprofiles1 = Get-Content $path -Raw | ConvertFrom-Json
-#     $vprofiles = [System.Collections.ArrayList]@() 
-#     foreach ($value in $vprofiles1.profiles) {
-#         $nprof = [PSCustomObject]@{
-#             uuid = [guid]::NewGuid().ToString("N")
-#             name = ""
-#             json = $value.lastVersionId
-#             gamedir = ""
-#             memory = 0
-#             args = ""
-#             mineargs = ""
-#             opti = 1
-#         }
-
-#         if ([string]::IsNullOrEmpty($value.name)) {
-#             $nprof.name = $value.lastVersionId+" converted"
-#         } else {
-#             $nprof.name = $value.name+" converted"
-#         }
-
-#         $vprofile.Add($nprof)
-#     }
-#     return $vprofiles
-# }
-
 $u_adj = @("Swift", "Lazy", "Brave", "Silent", "Happy", "Clever", "Dark", "Fuzzy", "Witty", "Mighty", "Muddy", "Mystic", "Shadow", "Oak", "Holy", "Open", "Neat")
-$u_nou = @("Fox", "Tiger", "Eagle", "Panda", "Wolf", "Dragon", "Otter", "Bear", "Hawk", "Shark", "Cat", "Llama", "Hamster", "Rabbit", "Owl", "Lion", "Fiber", "Sage", "Clover", "Relic")
+$u_nou = @("Fox", "Tiger", "Eagle", "Panda", "Wolf", "Dragon", "Otter", "Bear", "Hawk", "Shark", "Cat", "Llama", "Hamster", "Rabbit", "Owl", "Lion", "Fiber", "Sage", "Clover", "Relic", "Cow")
 function CreateUsername {
     $a = Get-Random $u_adj
     $b = Get-Random $u_nou
@@ -216,7 +186,7 @@ $notDownloadedMF = $true
 function GetVersionManifest {
     $mfpath = JoinPath $root "version_manifest.json"
     if (-not [System.IO.File]::Exists($mfpath) -or $notDownloadedMF) {
-        info "[mf/ALLVER] Getting version manifest"
+        info "Getting version_manifest_v2.json"
         DownloadFile "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json" $mfpath
         $global:notDownloadedMF = $false
     }
@@ -229,7 +199,7 @@ function GetOnlineVersionList {
 }
 
 function GetOfflineVersionList {
-    $folders = Get-ChildItem -Path "$mchome/versions" -Directory
+    $folders = Get-ChildItem -Path "$mchome/versions" -Directory -ErrorAction SilentlyContinue
     $versions = [System.Collections.Generic.List[object]]::new()
     foreach ($folder in $folders) {
         if (Test-Path "$($folder.FullName)/$($folder.Name).json") {
@@ -244,7 +214,6 @@ function GetOfflineVersionList {
 
 
 $launching = $false
-$isconnected = Test-Connection 8.8.8.8 -Count 1 -ErrorAction SilentlyContinue
 function GetClassFiles {
     param($manifest, [bool]$rewrite, [bool]$hashes, $call)
 
@@ -257,8 +226,8 @@ function GetClassFiles {
     if (-not [System.IO.Directory]::Exists($verNative)) {$donatives = $true; [void](New-Item $verNative -Type Directory -Force)}
     
     #Client
-    if (-not [System.IO.File]::Exists($verFile) -or $rewrite -or ($hashes -and $manifest.downloads.client.sha1 -and ((Get-FileHash $verFile -Algorithm SHA1).Hash -ne $manifest.downloads.client.sha1))) {
-        info "[libs/MC] Downloading $($manifest.id).jar"
+    if ((-not [System.IO.File]::Exists($verFile) -or $rewrite -or ($hashes -and $manifest.downloads.client.sha1 -and ((Get-FileHash $verFile -Algorithm SHA1).Hash -ne $manifest.downloads.client.sha1))) -and $null -ne $manifest.downloads.client.url) {
+        info "Downloading client $($manifest.id).jar"
         DownloadFile $manifest.downloads.client.url $verFile
     }
 
@@ -273,7 +242,7 @@ function GetClassFiles {
 
     $LibsDir = JoinPath $mchome "libraries"
     
-    $cp = [System.Collections.ArrayList]@()
+    $classpath = [System.Collections.Generic.List[object]]::new()
     # Libraries
     $count = $(@($manifest.libraries).Count)
     $index = 0
@@ -293,18 +262,20 @@ function GetClassFiles {
             if ($null -ne $lib.downloads.artifact.path) {
                 $libpath = $lib.downloads.artifact.path
             } else {
-                $libpath = [string]::Join("/", $split)
+                $libpath = JoinPath ([string]::Join("/", $split)) "$($split[-2])-$($split[-1]).jar"
             }
             $dest = JoinPath $LibsDir $libpath
             $destPath = Split-Path $dest -Parent
 
-            if (-not [System.IO.File]::Exists($dest) -or $rewrite -or ($hashes -and $lib.downloads.artifact.sha1 -and ((Get-FileHash $dest -Algorithm SHA1).Hash -ne $lib.downloads.artifact.sha1)) ) {
-                [void](New-Item $destPath -Type Directory -Force)
-                info "[libs] Downloading $libpath..."
-                DownloadFile $lib.downloads.artifact.url $dest
+            if ($null -ne $lib.downloads.artifact.url) {
+                if (-not [System.IO.File]::Exists($dest) -or $rewrite -or ($hashes -and $lib.downloads.artifact.sha1 -and ((Get-FileHash $dest -Algorithm SHA1).Hash -ne $lib.downloads.artifact.sha1)) ) {
+                    [void](New-Item $destPath -Type Directory -Force)
+                    info "Downloading library $libpath..."
+                    DownloadFile $lib.downloads.artifact.url $dest
+                }
             }
-            if (-not $cp.Contains($dest)) {
-                [void]$cp.Add($dest)
+            if (-not $classpath.Contains($dest)) {
+                [void]$classpath.Add($dest)
             }
         }
         if (($null -ne $lib.downloads.classifiers) -and ($null -ne $lib.natives.windows)) {
@@ -314,20 +285,26 @@ function GetClassFiles {
             if ($null -ne $libcl.path) {
                 $libpath = $libcl.path
             } else {
-                $libpath = [string]::Join("/", $split)
+                $libpath = JoinPath ([string]::Join("/", $split)) "$($split[-2])-$($split[-1]).jar"
             }
             $dest = JoinPath $LibsDir ($libpath+".zip")
             $destPath = Split-Path $dest -Parent
-            if (-not [System.IO.File]::Exists($dest) -or $rewrite -or $donatives) {
-                [void](New-Item $destPath -Type Directory -Force)
-                info "[libs] Downloading $libpath..."
-                DownloadFile $libcl.url $dest
-                if ($null -ne $lib.extract) {
-                    Expand-Archive $dest $verNative -Force
+            if ($null -ne $libcl.url) {
+                $notexists = -not [System.IO.File]::Exists($dest) -or $rewrite -or ($hashes -and $libcl.sha1 -and ((Get-FileHash $dest -Algorithm SHA1).Hash -ne $libcl.sha1))
+                if ($donatives -or $notexists) {
+                    if ($notexists) {
+                        [void](New-Item $destPath -Type Directory -Force)
+                        info "Downloading library $libpath..."
+                        DownloadFile $libcl.url $dest
+                    }
+                    if ($null -ne $lib.extract) {
+                        info "Extract: $dest"
+                        Expand-Archive $dest $verNative -Force
+                    }
                 }
             }
-            if (-not ($null -ne $lib.extract) -and -not $cp.Contains($dest)) {
-                [void]$cp.Add($dest)
+            if ($null -eq $lib.extract -and -not $classpath.Contains($dest)) {
+                [void]$classpath.Add($dest)
             }
         }
         if ($null -eq $lib.downloads) {
@@ -340,7 +317,7 @@ function GetClassFiles {
             if (($null -ne $lib.url) -and ($lib.url -match "https?:\/\/.+")) {
                 if (-not [System.IO.File]::Exists($libPath) -or $rewrite -or ($hashes -and $lib.sha1 -and ((Get-FileHash $libPath -Algorithm SHA1).Hash -ne $lib.sha1))) {
                     [void](New-Item $destPath -Type Directory -Force)
-                    info "[libs] Downloading $pathName/$libName..."
+                    info "Downloading library $pathName/$libName..."
                     if ($lib.url -match "https?:\/\/.+\/.+") {
                         DownloadFile $lib.url $libPath
                     } else {
@@ -351,20 +328,20 @@ function GetClassFiles {
                     }
                 }
             } elseif (-not [System.IO.File]::Exists($libPath)) {continue}
-            if (-not $cp.Contains($libPath)) {
-                [void]$cp.Add($libPath)
+            if (-not $classpath.Contains($libPath)) {
+                [void]$classpath.Add($libPath)
             }
         }
     }
-    [void]$cp.Add($verFile)
+    [void]$classpath.Add($verFile)
     if ([System.IO.Directory]::Exists($inf)) {[System.IO.Directory]::Delete($inf, $true)}
     foreach ($item in (Get-ChildItem $verNative -File)) {
         if ($item.Extension -ne ".dll") {
             Remove-Item $item.FullName -Force
         }
     }
-    $str = $cp -join ";"
-    return $str.Replace("\", "/")
+    $str = $classpath -join ";"
+    return $str # .Replace("\", "/")
 }
 
 function CheckManifest {
@@ -378,7 +355,7 @@ function CheckManifest {
             if ($null -ne $verinlist) {
                 $versionDir = JoinPath $mchome "versions" $version
                 [void](New-Item $versionDir -Type Directory -Force)
-                info "[mf/VER] Downloading $version"
+                info "Downloading $version manifest"
                 DownloadFile $verinlist.url $manifestLoc
             }
         }
@@ -387,9 +364,9 @@ function CheckManifest {
 }
 
 function GetAssetDir {
-    param($manifest, $gdir)
+    param($manifest, $gameDir)
     $assetDir = JoinPath $mchome "assets"
-    $resDir = JoinPath $gdir "resources"
+    $resDir = JoinPath $gameDir "resources"
     
     $virtDir = JoinPath $assetDir "virtual" $manifest.assetIndex.id
     $indexFile = JoinPath $assetDir "indexes" "$($manifest.assetIndex.id).json"
@@ -403,12 +380,12 @@ function GetAssetDir {
 }
 
 function CheckAssets {
-    param($manifest, $gdir, [bool]$rewrite, [bool]$hashes, $call)
+    param($manifest, $gameDir, [bool]$rewrite, [bool]$hashes, $call)
     $assetIndex = $manifest.assetIndex
     if ($null -eq $assetIndex) {return}
 
     $assetDir = JoinPath $mchome "assets"
-    $resDir = JoinPath $gdir "resources"
+    $resDir = JoinPath $gameDir "resources"
     $objectsDir = JoinPath $assetDir "objects"
     $indexesDir = JoinPath $assetDir "indexes"
 
@@ -417,7 +394,7 @@ function CheckAssets {
     if (-not [System.IO.Directory]::Exists($indexesDir)) {[void](New-Item $indexesDir -ItemType Directory -Force)}
     # Index
     if (-not [System.IO.File]::Exists($indexFile) -or $rewrite -or ($hashes -and $assetIndex.sha1 -and ((Get-FileHash $indexFile -Algorithm SHA1).Hash -ne $assetIndex.sha1))) {
-        info "[assets/INDEX] Downloading $($assetIndex.id) index"
+        info "Downloading $($assetIndex.id) asset index"
         DownloadFile $assetIndex.url $indexFile
     }
     if (-not [System.IO.File]::Exists($indexFile)) {return}
@@ -447,7 +424,7 @@ function CheckAssets {
         }
         if (-not [System.IO.Directory]::Exists($assetPath)) {[void](New-Item $assetPath -ItemType Directory -Force)}
         if (-not [System.IO.File]::Exists($assetFile) -or $rewrite -or ($hashes -and ((Get-FileHash $assetFile -Algorithm SHA1).Hash -ne $hash)) ) {
-            info "[assets] Downloading $key"
+            info "Downloading asset $key"
             DownloadFile "https://resources.download.minecraft.net/$subDir/$hash" $assetFile
         }
     }
@@ -492,7 +469,7 @@ function DownloadJava {
         $fileDir = Split-Path $filePath -Parent
         if (-not [System.IO.Directory]::Exists($fileDir)) {[void](New-Item -ItemType Directory -Path $fileDir -Force)}
         if (-not [System.IO.File]::Exists($filePath) -or $rewrite) {
-            info "[java] Downloading $($file.Name)..."
+            info "Downloading java's $($file.Name)..."
             DownloadFile $file.Value.downloads.raw.url $filePath
         }
     }
@@ -500,7 +477,7 @@ function DownloadJava {
 
 function GetJava {
     param($rejava, $rewrite, $call)
-    if ($null -eq $rejava) {
+    if ($null -eq $rejava -or $rejava -eq "minecraft-java-exe") {
         $rejava = "jre-legacy"
     }
     $path = JoinPath $root "java" $rejava "bin" "java.exe"
@@ -531,8 +508,10 @@ function BuildArguments {
         $str = $manifest.minecraftArguments
     }
     
-    if ($moreargs.Trim() -ne '') {
-        $str += ' '+$moreargs.Trim()
+    foreach ($arg in $moreargs) {
+        if (($arg -is [string]) -and ($arg.Trim() -ne "")) {
+            $str += ' '+$arg.Trim()
+        }
     }
 
     $each = @{
@@ -579,10 +558,10 @@ function BuildJvmArguments {
     if ($null -ne $PSObj.optimized) {
         $str += ' '+$PSObj.optimized.args
     }
-        
+    
     foreach ($arg in $moreargs) {
         if (($arg -is [string]) -and ($arg.Trim() -ne "")) {
-            $str += ' '+$arg
+            $str += ' '+$arg.Trim()
         }
     }
     
@@ -627,7 +606,6 @@ function BuildJvmArguments {
 
 function Get-AuthLib {
     param($point, [bool]$rewrite, [bool]$hashes)
-    info "Checking for authlib updates..."
     $libdir = JoinPath $mchome "libraries" "javaagent"
     $libpath = JoinPath $libdir "authlib-injector.jar"
 
@@ -638,7 +616,7 @@ function Get-AuthLib {
                 if (($asset.content_type -eq "application/java-archive")) {
                     if ((-not [System.IO.File]::Exists($libpath)) -or $rewrite -or ($hashes -and ((Get-FileHash $libpath -Algorithm SHA256).Hash -ne ($asset.digest -replace "^sha256:", "")))) {
                         [void](New-Item $libdir -Type Directory -Force)
-                        info "[auth] Downloading authlib-injector.jar"
+                        info "Downloading authlib-injector.jar"
                         DownloadFile $asset.browser_download_url $libpath
                     }
                     break
@@ -650,13 +628,11 @@ function Get-AuthLib {
     }
 
     if ([System.IO.File]::Exists($libpath)) {
-        return "`"-javaagent:$libpath=$point`""
+        return "`"-javaagent:$libpath=$point`" -Dauthlibinjector.noShowServerName"
     }
 }
 
 function CheckForUpdates {
-    info "Checking for updates..."
-
     try {
         $github = Invoke-RestMethod -Uri "https://api.github.com/repos/Lomik8908/Launshell/releases/latest" -Method Get
         if (($null -ne $github) -and ($github.tag_name -is [string]) -and ($null -ne $github.assets) -and ([version]$github.tag_name -gt [version]$launchver)) {
@@ -665,16 +641,15 @@ function CheckForUpdates {
                 foreach ($asset in $github.assets) {
                     if ($asset.content_type -eq "application/x-msdownload") {
                         $path = JoinPath $env:TEMP $asset.name
-                        info "[ls/UPD] Downloading $($asset.name)"
+                        info "Downloading $($asset.name)"
                         DownloadFile $asset.browser_download_url $path
                         Start-Process -FilePath $path
-                        exit
+                        [System.Windows.Forms.Application]::OpenForms | ForEach-Object { $_.Close() }
                         break
                     }
                 }
-            } else {
-                return $true;
             }
+            return $true;
         }
     } catch {
         warn "Could not check for updates: $_"
@@ -682,11 +657,19 @@ function CheckForUpdates {
     return $false;
 }
 
+# $backupath = JoinPath $root "mc_backups"
+# function BackupFolder {
+#     param($path)
+#     if ([System.IO.Directory]::Exists($path)) {
+#         $df = JoinPath $backupath (Get-Date -Format "dd.MM.yyyy")
+#         [void](New-Item $df -Type Directory -Force)
+#         info "Backing up $path"
+#         Copy-Item -Path $path -Destination $df -Recurse -Force
+#     }
+# }
 #Modloaders
-##[ModificationLocationModloader]##
 
 #Other
-##[ModificationLocationOther]##
 
 function GetLanguage {
     param([string]$langname)
@@ -705,31 +688,28 @@ try {
     }
     $mchome = (Get-GameDir $settings.gamedir)
     $lang = GetLanguage $settings.lang
+    $langfile = $settings.lang
 } catch {warn "Error loading jsons: $_"}
 Set-Location $mchome
 
-$defaultProfs = '[{"uuid":  "latest-release", "name":  "Latest Release", "json":  "latest", "opti":  1},{"uuid":  "latest-snapshot", "name":  "Latest Snapshot", "json":  "latest-snapshot", "opti":  1}]'
+$defaultProfs = '[{"uuid":  "latest-release", "name":  "Latest Release", "json":  "latest-release", "opti":  1},{"uuid":  "latest-snapshot", "name":  "Latest Snapshot", "json":  "latest-snapshot", "opti":  1}]'
 if (-not (Test-Path "$mchome/launshell_profiles.json")) {
     Set-Content "$mchome/launshell_profiles.json" $defaultProfs
 }
-
-if ($settings.checkupdates) {
-    $gotupd = CheckForUpdates
-    info "Update avaliable: $gotupd"
+if (-not (Test-Path "$mchome/launcher_profiles.json")) {
+    Set-Content "$mchome/launcher_profiles.json" '{"profiles": {}}'
 }
 
 $edituser = $false
 $editver = $false
 
-# function TryLoadImg {
-#     param($path)
-#     try {return [System.Drawing.Image]::FromFile($path)} catch {return $null}
-# }
-
 try {
-    ##[ModificationLocationBeforeStyles]##
-
     [System.Windows.Forms.Application]::EnableVisualStyles()
+    
+    if ($settings.checkupdates) {
+        $gotupd = CheckForUpdates
+        info "Update avaliable: $gotupd"
+    }
 
     ##[ModificationLocationBeforeUI]##
 
@@ -755,8 +735,9 @@ try {
     $other_ui.opti_box.DisplayMember = 'name'
     $version_dialog.opti_box.DisplayMember = 'name'
 
-    $browsefolder = [System.Windows.Forms.FolderBrowserDialog]@{}
-    $browsefolder.Description = [string]$lang.browsedescr
+    $browsefolder = [System.Windows.Forms.FolderBrowserDialog]@{
+        Description = [string]$lang.browsedescr
+    }
     
     [void]$other_ui.opti_box.Items.AddRange($optimized)
     [void]$version_dialog.opti_box.Items.AddRange($optimized)
@@ -783,6 +764,17 @@ try {
         $main_ui.user_info.Text = ([string]$lang.user_info -f $username, $usertype)
         $main_ui.changeuser_btn.Enabled = ($null -ne $main_ui.users_list.SelectedItem)
         $main_ui.user_box.Text = $main_ui.users_list.SelectedItem.name
+    }
+    function ActionUpdate {
+        if ($null -eq $main_ui.users_list.SelectedItem) {
+            $main_ui.action_label.Text = [string]$lang.selectacc
+        } elseif ($null -eq $main_ui.version_box.SelectedItem) {
+            $main_ui.action_label.Text = [string]$lang.selectver
+        } elseif ($main_ui.users_list.SelectedItem.name -notmatch "^[\w]{3,16}$") {
+            $main_ui.action_label.Text = [string]$lang.userwarn
+        } else {
+            $main_ui.action_label.Text = ""
+        }
     }
 
     function RefreshVersions {
@@ -827,7 +819,6 @@ try {
 			$idx = $main_ui.users_list.Items.Add($user)
 			if ($user.uuid -eq $settings.user) {
 				$main_ui.users_list.SelectedIndex = $idx
-				UpdateUserInfo
 			}
 		}
 	}
@@ -840,213 +831,231 @@ try {
     function EndLaunch {
         $global:launching = $false
         $main_ui.play_btn.Enabled = $true
+        $main_ui.version_box.Enabled = $true
+        $main_ui.users_list.Enabled = $true
+        $main_ui.profile.Enabled = $true
+        $main_ui.adduser_btn.Enabled = $true
+        if ($null -ne $main_ui.users_list.SelectedItem) {
+            $main_ui.changeuser_btn.Enabled = $true
+        }
         $main_ui.play_btn.Text = [string]$lang.play
         $main_ui.statustext.Text = ""
     }
     function GameLaunch {
         try {
-        if ($launching) {
-            $main_ui.play_btn.Enabled = $false
-            $global:launching = $false
-            $main_ui.play_btn.Text = [string]$lang.canceling
-            [System.Windows.Forms.Application]::DoEvents()
-            return
-        }
-        $user = $main_ui.users_list.SelectedItem
-        $vprofile = $main_ui.version_box.SelectedItem
-        
-		if ([string]::IsNullOrEmpty($user.name)) {$main_ui.statustext.Text = [string]$lang.selectacc;return}
-		if ($main_ui.version_box.SelectedIndex -eq -1) {$main_ui.statustext.Text = [string]$lang.selectver;return}
+            if ($launching) {
+                $global:launching = $false
+                $main_ui.play_btn.Enabled = $false
+                $main_ui.play_btn.Text = [string]$lang.canceling
+                return
+            }
+            $user = $main_ui.users_list.SelectedItem
+            $instance = $main_ui.version_box.SelectedItem
+            $json = $instance.json
+            info "Selected user: $($user.name)"
+            info "Selected profile: $($instance.name)"
 
-        $main_ui.play_btn.Text = [string]$lang.cancel
-        $global:isconnected = Test-Connection 8.8.8.8 -Count 1 -ErrorAction SilentlyContinue
-        $global:launching = $true
+            if ($null -eq $user) { return }
+            if ($null -eq $instance) { return }
 
-        if (($user.name.Length -lt 3) -or ($user.name.Length -gt 16) -or (-not ($user.name -match "^[A-Za-z0-9_]+$"))) {
-            warn "Username too long or contains special characters"
-        }
+            $main_ui.play_btn.Text = [string]$lang.cancel
+            $main_ui.version_box.Enabled = $false
+            $main_ui.users_list.Enabled = $false
+            $main_ui.profile.Enabled = $false
+            $main_ui.adduser_btn.Enabled = $false
+            $main_ui.changeuser_btn.Enabled = $false
+            $global:launching = $true
 
-        if (-not $launching) {return EndLaunch}
+            #old version users helo!
+            if ([string]::IsNullOrEmpty($user.uuid)) {$userId = (New-GuidFromString $user.name)}
+            else {$userId = $user.uuid}
+            if ([string]::IsNullOrEmpty($user.token)) {$userToken = "0"}
+            else {$userToken = $user.token}
 
-        #Fallback
-        if ([string]::IsNullOrEmpty($user.uuid)) {$usid = (New-GuidFromString $user.name)} else {$usid = $user.uuid}
-        if ([string]::IsNullOrEmpty($user.token)) {$ustk = "0"} else {$ustk = $user.token}
+            #Variables
+            if ([string]::IsNullOrWhitespace($instance.gamedir)) {$gameDir = (Resolve-Path $mchome).Path}
+            else {$gameDir = (Resolve-Path $instance.gamedir).Path}
 
-        # Validate token, if invalid renew
-        if ($main_ui.authlib_box.Checked -and $isconnected) {
+            if ($instance.memory -le 0) {$memory = $main_ui.mem_box.Value}
+            else {$memory = $instance.memory}
+
+            $javarg = [System.Collections.Generic.List[object]]@($instance.args, $other_ui.jvarg_box.Text)
+
+            if ($instance.opti -eq 1 -and $other_ui.opti_box.SelectedIndex -ne 0) {
+                $javarg.Add($optimized[$other_ui.opti_box.SelectedIndex-1].args)
+            } elseif ($instance.opti -ne 0) {
+                $javarg.Add($optimized[$instance.opti-2].args)
+            }
+
+            #token validator
             if ($user.type -eq "elyby") {
-                $body = @{ accessToken = $ustk; clientToken = $settings.clientId } | ConvertTo-Json -Depth 10
-                info "Checking token..."
-                try {
-                    [void](Invoke-WebRequest -Uri "https://authserver.ely.by/auth/validate" -Method Post -ContentType "application/json" -Body $body)
-                    info "Token valid"
-                } catch {
-                    if ($_.Exception.Response.StatusCode -eq 401) {
-                        info "Renewing token..."
-                        try {
-                            $newTK = Invoke-RestMethod -Uri "https://authserver.ely.by/auth/refresh" -Method Post -ContentType "application/json" -Body $body
-                            info "Token renewed successfully"
-                            $ustk = $newTK.accessToken
-                            $user.token = $newTK.accessToken
-                            SaveUsers
-                        } catch {
-                            warn "Token invalid or error: $_\n    Most likely your client id was reset, in that case please readd your account."
+                $elyAvaliable = Test-Connection "ely.by" -Quiet -Count 1
+                if ($elyAvaliable) {
+                    $body = @{accessToken = $userToken; clientToken = $settings.clientId} | ConvertTo-Json
+                    try {
+                        [void](Invoke-WebRequest -Uri "https://authserver.ely.by/auth/validate" -Method Post -ContentType "application/json" -Body $body)
+                        info "Token is valid"
+                    } catch {
+                        if ($_.Exception.Response.StatusCode -eq 401) {
+                            try {
+                                $newTK = Invoke-RestMethod -Uri "https://authserver.ely.by/auth/refresh" -Method Post -ContentType "application/json" -Body $body
+                                $userToken = $newTK.accessToken
+                                $user.token = $newTK.accessToken
+                                SaveUsers
+                                info "Renewed successfully"
+                            } catch {
+                                warn "Renewing failed: $_"
+                            }
+                        } else {
+                            warn "Tried validating but $_"
                         }
-                    } else {
-                        warn "Token error: $_"
                     }
-                    # if ([System.Windows.Forms.MessageBox]::Show([string]$lang.ely_invalid, "Ely.by", "YesNo", "Warning") -eq "No") {
-                    #     return EndLaunch
-                    # }
                 }
             }
-        }
+            if (-not $launching) {return EndLaunch}
 
-        $json = $vprofile.json
+            #Manifest check and merging
+            $main_ui.statustext.Text = [string]$lang.checkmanifest
+            [System.Windows.Forms.Application]::DoEvents()
 
-        
-        if ([string]::IsNullOrEmpty($vprofile.gamedir)) {$gdir = (Resolve-Path $mchome).Path}
-        else {$gdir = (Resolve-Path $vprofile.gamedir).Path}
+            if ($json -eq "latest" -or $json -eq "latest-release") {$json = (GetVersionManifest).latest.release}
+            elseif ($json -eq "latest-snapshot") {$json = (GetVersionManifest).latest.snapshot}
 
-        if ($vprofile.memory -le 0) {$mem = $main_ui.mem_box.Value}
-        else {$mem = $vprofile.memory}
+            $newInstall = -not [System.IO.File]::Exists("$mchome/versions/$json/$json.jar")
+            $manifestPath = CheckManifest $json $main_ui.redownlib_box.Checked
 
-        $main_ui.statustext.Text = [string]$lang.checkmanifest
-        [System.Windows.Forms.Application]::DoEvents()
-
-        if ($vprofile.json -eq "latest") {
-            $json = (GetVersionManifest).latest.release
-        } elseif ($vprofile.json -eq "latest-snapshot") {
-            $json = (GetVersionManifest).latest.snapshot
-        }
-
-        $newdown = -not [System.IO.File]::Exists("$mchome/versions/$json/$json.jar")
-        $manifestPath = CheckManifest $json $main_ui.redownlib_box.Checked
-        
-
-        if (-not [System.IO.File]::Exists($manifestPath)) {warn "Could not find the manifest."; return EndLaunch}
-        
-        #InheritsFrom
-        $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-        if (-not [string]::IsNullOrEmpty($manifest.inheritsFrom)) {
-            $inheritedPath = CheckManifest $manifest.inheritsFrom $main_ui.redownlib_box.Checked
-            if (-not [System.IO.File]::Exists($inheritedPath)) {
-                warn "Inherited manifest path not found."
+            if (-not [System.IO.File]::Exists($manifestPath)) {
+                warn "Could not find the manifest file for $json."
                 return EndLaunch
-            } else {
-                $inherited = Get-Content $inheritedPath -Raw | ConvertFrom-Json
-                $merged = MergeJson $manifest $inherited
-                $merged.PSObject.Properties.Remove("inheritsFrom")
-
-                $merged | ConvertTo-Json -Depth 50 -Compress | Set-Content $manifestPath
-                $manifest = $merged
             }
-        }
-        
-        $main_ui.statustext.Text = [string]$lang.checkfiles
-        [System.Windows.Forms.Application]::DoEvents()
 
-        $jva = @($vprofile.args, $other_ui.jvarg_box.Text)
+            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+            if (-not [string]::IsNullOrWhiteSpace($manifest.inheritsFrom)) {
+                $inheritedPath = CheckManifest $manifest.inheritsFrom $main_ui.redownlib_box.Checked
+                if (-not [System.IO.File]::Exists($inheritedPath)) {
+                    warn "Could not inherit $($manifest.inheritsFrom) manifest file for $json."
+                    return EndLaunch
+                } else {
+                    $inherited = Get-Content $inheritedPath -Raw | ConvertFrom-Json
+                    $merged = MergeJson $manifest $inherited
+                    $merged.PSObject.Properties.Remove("inheritsFrom")
 
-        $classes = GetClassFiles $manifest $main_ui.redownlib_box.Checked $main_ui.checkhash_box.Checked {
-            param($i,$c)
-            $main_ui.statustext.Text = [string]$lang.checkfiles+" ($i/$c)"
-            [System.Windows.Forms.Application]::DoEvents()
-        }
-        if ($main_ui.authlib_box.Checked -and $isconnected) {
-            if ($user.type -eq "elyby") {
-                $libarg = Get-AuthLib "ely.by" $main_ui.redownlib_box.Checked $main_ui.checkhash_box.Checked
-                if (-not [string]::IsNullOrEmpty($libarg)) {
-                    $jva += $libarg
+                    $merged | ConvertTo-Json -Depth 50 -Compress | Set-Content $manifestPath
+                    $manifest = $merged
                 }
             }
-        }
-        $main_ui.redownlib_box.Checked = $false
-        if (-not $launching) {return EndLaunch}
-        
-        if ($main_ui.checkass_box.Checked -or $main_ui.redownass_box.Checked -or $newdown) {
-            $main_ui.statustext.Text = [string]$lang.checkassets
+
+            ##Some defines
+            $assetsDir = GetAssetDir $manifest $gameDir
+
+            #Check classpath
+            $main_ui.statustext.Text = [string]$lang.checkfiles
             [System.Windows.Forms.Application]::DoEvents()
-            CheckAssets $manifest $gdir $main_ui.redownass_box.Checked $main_ui.checkhash_box.Checked {
+
+            $classpath = GetClassFiles $manifest $main_ui.redownlib_box.Checked $main_ui.checkhash_box.Checked {
                 param($i,$c)
-                $main_ui.statustext.Text = [string]$lang.checkassets+" ($i/$c)"
+                $main_ui.statustext.Text = [string]$lang.checkfiles+" ($i/$c)"
                 [System.Windows.Forms.Application]::DoEvents()
             }
-            $main_ui.redownass_box.Checked = $false
-        }
-        if (-not $launching) {return EndLaunch}
-        $adir = GetAssetDir $manifest $gdir
-        
-        $mcargc = [PSCustomObject]@{
-            Username=$user.name
-            GameDir=$gdir
-            AssetDir=$adir
-            Uuid=$usid
-            Token=$ustk
-            ClientID=$settings.clientId
-            UserType="msa"
-            VerType=$manifest.type
-            Fullscreen=$main_ui.fullscreen_box.Checked
-            Width=$main_ui.resx_box.Value
-            Height=$main_ui.resy_box.Value
-        }
-        
-        $jvargc = [PSCustomObject]@{
-            xmx=$mem
-            xms=[math]::Min($mem, 2048)
-            natives=(JoinPath $mchome "versions" $json "natives").Replace("\", "/")
-            classes=$classes
-        }
 
-        if (($vprofile.opti -eq 1) -and ($other_ui.opti_box.SelectedIndex -ne 0)) {
-            $jva += $optimized[$other_ui.opti_box.SelectedIndex-1].args
-        } elseif ($vprofile.opti -ne 0) {
-            $jva += $optimized[$vprofile.opti-2].args
-        }
-        
-        $jvarg = BuildJvmArguments $manifest $jvargc $jva
-        $mcarg = BuildArguments $manifest $mcargc "$($vprofile.mineargs) $($other_ui.mcarg_box.Text)"
+            if ($main_ui.authlib_box.Checked) {
+                if ($user.type -eq "elyby" -and $elyAvaliable) {
+                    $injarg = Get-AuthLib "https://account.ely.by/api/authlib-injector" $main_ui.redownlib_box.Checked $main_ui.checkhash_box.Checked
+                    $javarg.Add($injarg)
+                }
+            }
 
-        $main_ui.statustext.Text = [string]$lang.checkjava
-        [System.Windows.Forms.Application]::DoEvents()
-        $javaexec = GetJava $manifest.javaVersion.component $main_ui.redownjav_box.Checked {
-            param($i,$c)
-            $main_ui.statustext.Text = [string]$lang.checkjava+" ($i/$c)"
+            $main_ui.redownlib_box.Checked = $false
+            if (-not $launching) {return EndLaunch}
+            
+            #Check assets
+            if ($main_ui.checkass_box.Checked -or $main_ui.redownass_box.Checked -or $newInstall) {
+                $main_ui.statustext.Text = [string]$lang.checkassets
+                [System.Windows.Forms.Application]::DoEvents()
+
+                CheckAssets $manifest $gameDir $main_ui.redownass_box.Checked $main_ui.checkhash_box.Checked {
+                    param($i,$c)
+                    $main_ui.statustext.Text = [string]$lang.checkassets+" ($i/$c)"
+                    [System.Windows.Forms.Application]::DoEvents()
+                }
+
+                $main_ui.redownass_box.Checked = $false
+                if (-not $launching) {return EndLaunch}
+            }
+
+            $main_ui.statustext.Text = [string]$lang.checkjava
             [System.Windows.Forms.Application]::DoEvents()
-        }
-        $main_ui.redownjav_box.Checked = $false
-        if (-not $launching) {return EndLaunch}
-        $main_ui.play_btn.Enabled = $false
 
-        $main_ui.statustext.Text = ""
-        if ($main_ui.launch_box.SelectedIndex -le 1) {$main_ui.window.Hide()}
+            #Check java
+            $java_exe = GetJava $manifest.javaVersion.component $main_ui.redownjav_box.Checked {
+                param($i,$c)
+                $main_ui.statustext.Text = [string]$lang.checkjava+" ($i/$c)"
+                [System.Windows.Forms.Application]::DoEvents()
+            }
 
-        try {
-            Set-Location $gdir
-            info "Launching..."
-            if ($other_ui.showarg_box.Checked) {
-                info "Arguments: $($jvarg, $manifest.mainClass, $mcarg)"
+            $main_ui.redownjav_box.Checked = $false
+            if (-not $launching) {return EndLaunch}
+            
+            #Arguments
+            $gameArg = [PSCustomObject]@{
+                Username = $user.name
+                GameDir = $gameDir
+                AssetDir = $assetsDir
+                Uuid = $userId
+                Token = $userToken
+                ClientID = $settings.clientId
+                UserType = "legacy"
+                VerType = $manifest.type
+                Fullscreen = $main_ui.fullscreen_box.Checked
+                Width = $main_ui.resx_box.Value
+                Height = $main_ui.resy_box.Value
             }
-            & "$javaexec" @($jvarg-split' ') $manifest.mainClass @($mcarg-split' ') 2>&1 | ForEach-Object {
-                if ($_ -is [System.Management.Automation.ErrorRecord]) {Write-Host $_ -ForegroundColor Red -BackgroundColor Black}
-                else {Write-Host $_}
+            $jreArg = [PSCustomObject]@{
+                xmx = $memory
+                xms = [math]::Min($memory, 2048)
+                natives = ("$mchome/versions/$json/natives") # .Replace("\", "/")
+                classes = $classpath
             }
-            info "Exit code: $LASTEXITCODE"
+
+            $jreArgs = BuildJvmArguments $manifest $jreArg $javarg
+            $gameArgs = BuildArguments $manifest $gameArg @($instance.mineargs, $other_ui.mcarg_box.Text)
+            
+            $main_ui.play_btn.Enabled = $false
+            $main_ui.statustext.Text = ""
+
+            if ($main_ui.launch_box.SelectedIndex -le 1) {$main_ui.window.Hide()}
+            $logger = [System.Text.StringBuilder]::new()
+            try {
+                Set-Location $gameDir
+                info "Launching $($manifest.id)..."
+                if ($other_ui.showarg_box.Checked) {
+                    info "Arguments: $($jreArgs, $manifest.mainClass, $gameArgs)"
+                }
+                & "$java_exe" ($jreArgs -split " ") $manifest.mainClass ($gameArgs -split " ") 2>&1 | ForEach-Object {
+                    if ($_ -is [System.Management.Automation.ErrorRecord]) {Write-Host $_ -ForegroundColor Red -BackgroundColor Black}
+                    else {Write-Host $_}
+                    $logger.AppendLine($_)
+                }
+            } catch {
+                warn "Launch error: $_"
+            }
             Set-Location $mchome
+            info "Exit code: $LASTEXITCODE"
             if ($main_ui.launch_box.SelectedIndex -eq 0) {$main_ui.window.Show()}
+
+            ## Crash thing
+
             if ($LASTEXITCODE -ne 0) {
-                [System.Windows.Forms.MessageBox]::Show("Game Crashed!`nSorry for the inconvenience...`nExit code: $LASTEXITCODE")
+                [System.Windows.Forms.MessageBox]::Show([string]$lang.crashed -f $LASTEXITCODE, [string]$lang.crashtitle)
             }
+
+            ##
             if ($main_ui.launch_box.SelectedIndex -eq 1) {$main_ui.window.Close()}
-        } catch {warn "Launch error: $_"; Set-Location $mchome; $main_ui.window.Show()}
 
-        $global:launching = $false
-
-        $main_ui.play_btn.Text = [string]$lang.play
-        $main_ui.play_btn.Enabled = $true
-        } catch {
-            [System.Windows.Forms.MessageBox]::Show("$_`nAt line $($_.InvocationInfo.ScriptLineNumber)", "Error", "OK", "Error")
             EndLaunch
+        } catch {
+            EndLaunch
+            error "$_`n     At line $($_.InvocationInfo.ScriptLineNumber)"
         }
     }
     
@@ -1069,6 +1078,7 @@ try {
         RefreshVersions
         RefreshUsers
         UpdateUserInfo
+        ActionUpdate
     }
 
     
@@ -1122,6 +1132,7 @@ try {
     RefreshVersions
 	RefreshUsers
     UpdateUserInfo
+    ActionUpdate
 
 
 
@@ -1143,8 +1154,7 @@ try {
     })
 
     $main_ui.folder.Add_Click({
-        $vprofile = $main_ui.version_box.SelectedItem
-        if ([string]::IsNullOrEmpty($vprofile.gamedir)) {
+        if ([string]::IsNullOrWhitespace($main_ui.version_box.SelectedItem.gamedir)) {
             explorer.exe $mchome
         } else {
             $main_ui.folder_choose.Show($main_ui.status, "0,$(-$main_ui.status.Height)")
@@ -1160,6 +1170,7 @@ try {
     $main_ui.lang_box.Add_SelectedIndexChanged({
         param($i)
         $global:lang = GetLanguage $i.SelectedItem.filename
+        $global:langfile = $i.SelectedItem.filename
         [System.Windows.Forms.MessageBox]::Show([string]$lang.langchange, "Launshell", "OK", "Information")
     })
     $main_ui.dir_def.Add_Click({ SetGameDir "" })
@@ -1225,7 +1236,8 @@ try {
             $user_ui.window.ShowDialog()
         }
     })
-    $main_ui.users_list.Add_SelectedIndexChanged({ UpdateUserInfo })
+    $main_ui.users_list.Add_SelectedIndexChanged({ UpdateUserInfo; ActionUpdate })
+    $main_ui.version_box.Add_SelectedIndexChanged({ ActionUpdate })
 
     $user_ui.save_btn.Add_Click({
         $user_ui.info.Text = ""
@@ -1324,9 +1336,9 @@ try {
         param($id)
         $version_dialog.ver.Items.Clear()
 
-        if ($version_dialog.ver_adv.Checked -or (($id -eq "latest") -or ($id -eq "latest-snapshot"))) {
-            $lid = $version_dialog.ver.Items.Add([PSCustomObject]@{id = "latest"})
-            if ($id -eq "latest") {
+        if ($version_dialog.ver_adv.Checked -or (($id -eq "latest-release") -or ($id -eq "latest-snapshot"))) {
+            $lid = $version_dialog.ver.Items.Add([PSCustomObject]@{id = "latest-release"})
+            if ($id -eq "latest-release") {
                 $version_dialog.ver.SelectedIndex = $lid
             }
             $lsid = $version_dialog.ver.Items.Add([PSCustomObject]@{id = "latest-snapshot"})
@@ -1409,10 +1421,10 @@ try {
                 $version_ui.list_box.Items.Remove($version_ui.list_box.SelectedItem)
                 $main_ui.version_box.Items.Remove($version)
                 SaveProfiles
+                ActionUpdate
             }
         }
     })
-
     
     $version_dialog.save_btn.Add_Click({
         if ([string]::IsNullOrEmpty($version_dialog.name.Text)) {
@@ -1444,7 +1456,7 @@ try {
             else { $ver.dname = $ver.name }
 
             $idx = $main_ui.version_box.Items.Add($ver)
-            if (-not $main_ui.showver_box.Checked) { $ver.dname = "$($ver.name) ($($ver.json))"  }
+            $ver.dname = "$($ver.name) ($($ver.json))"
             $version_ui.list_box.Items.Add($ver)
             if ($item -eq $main_ui.version_box.SelectedItem) {
                 $main_ui.version_box.SelectedIndex = $idx
@@ -1470,7 +1482,7 @@ try {
             if ($main_ui.showver_box.Checked) { $ver.dname = "$($ver.name) ($($ver.json))" }
             else { $ver.dname = $ver.name }
             $main_ui.version_box.Items.Add($ver)
-            if (-not $main_ui.showver_box.Checked) { $ver.dname = "$($ver.name) ($($ver.json))"  }
+            $ver.dname = "$($ver.name) ($($ver.json))"
             $version_ui.list_box.Items.Add($ver)
             SaveProfiles
         }
@@ -1480,7 +1492,7 @@ try {
     $version_dialog.dirdef_btn.Add_Click({ $version_dialog.dir.Text = "" })
 
     $version_dialog.dir_btn.Add_Click({
-        if ([string]::IsNullOrEmpty($version_dialog.dir.Text)) {$browsefolder.SelectedPath = $mchome}
+        if ([string]::IsNullOrWhitespace($version_dialog.dir.Text)) {$browsefolder.SelectedPath = $mchome}
         else {$browsefolder.SelectedPath = $version_dialog.dir.Text}
         if ($browsefolder.ShowDialog() -eq "OK") {
             $version_dialog.dir.Text = $browsefolder.SelectedPath
@@ -1492,14 +1504,18 @@ try {
         if ($launching) {$e.Cancel = $true}
     })
 
-    [System.Windows.Forms.Application]::Add_ThreadException({
-        param($i, $e)
-        try {
-            throw $e.Exception
-        } catch {
-            error "$_`n    At line $($_.InvocationInfo.ScriptLineNumber)"
-        }
+    $main_ui.window.Add_Shown({
+        $main_ui.window.Activate()
     })
+
+    # [System.Windows.Forms.Application]::Add_ThreadException({
+    #     param($i, $e)
+    #     try {
+    #         throw $e.Exception
+    #     } catch {
+    #         error "$_`n    At line $($_.InvocationInfo.ScriptLineNumber)"
+    #     }
+    # })
 
     ##[ModificationLocationAfterLoad]##
 
@@ -1532,7 +1548,7 @@ try {
     warn "UI wasn't loaded: $_"
 }
 
-ConvertTo-Json $settings -Depth 20 | Set-Content "$root/settings.json"
+ConvertTo-Json $settings -Depth 10 | Set-Content "$root/settings.json"
 
 Set-Location $root
 ShowConsole $true
